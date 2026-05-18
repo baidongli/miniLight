@@ -99,6 +99,18 @@ and age rating.
 public release. The CI build number comes from the run number, so every
 upload is unique without manual edits.
 
+**Version-bump guard:** `scripts/check_version.sh` runs early in CI. It
+compares the pubspec version to the highest released `v<x.y.z>` git tag
+(the release job creates that tag automatically). If you forgot to bump:
+
+- on **`main`** the build **fails** with a clear message (so a stale
+  version can never reach the stores);
+- on a feature branch it only prints a **warning** (so day-to-day
+  iteration isn't blocked).
+
+So the routine for an update is just: edit `version:` in `pubspec.yaml`,
+commit, merge to `main`.
+
 ---
 
 ## Notes / known iteration points

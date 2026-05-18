@@ -18,6 +18,10 @@ jobs:
       PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Check version bump
+        run: bash scripts/check_version.sh
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -141,9 +145,23 @@ jobs:
     permissions:
       contents: write
     steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/download-artifact@v4
         with:
           path: artifacts
+      - name: Tag released version
+        run: |
+          V=$(grep -E '^version:' pubspec.yaml \
+            | sed -E 's/version:[[:space:]]*([0-9]+\.[0-9]+\.[0-9]+).*/\1/')
+          if git rev-parse "v$V" >/dev/null 2>&1; then
+            echo "Tag v$V already exists — skipping."
+          else
+            git tag "v$V"
+            git push origin "v$V"
+            echo "Tagged v$V."
+          fi
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
