@@ -68,8 +68,8 @@ class SettingsScreen extends StatelessWidget {
               onPick: meter.setFixedShutter,
             ),
           const Divider(),
-          ListTile(
-            title: const Text('Stop increment'),
+          const ListTile(
+            title: Text('Stop increment'),
           ),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),

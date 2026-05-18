@@ -24,7 +24,7 @@ class SpotOverlay extends StatelessWidget {
               height: size,
               decoration: BoxDecoration(
                 border: Border.all(
-                  color: Colors.amberAccent.withOpacity(0.9),
+                  color: Colors.amberAccent.withValues(alpha: 0.9),
                   width: 2,
                 ),
                 shape: mode == MeteringMode.spot
