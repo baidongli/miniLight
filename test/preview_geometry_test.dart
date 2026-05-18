@@ -38,8 +38,9 @@ void main() {
     });
 
     test('cover crop maps the visible centre correctly', () {
-      // view 100x200, child 100x100 -> scale 2, only middle 50% vertical
-      // band of the child is visible.
+      // view 100x200, child 100x100 -> scale 2. The child is cropped
+      // horizontally (only the middle 50% of its width is visible) and
+      // shown in full vertically.
       const g = PreviewGeometry(
         viewWidth: 100,
         viewHeight: 200,
@@ -50,10 +51,14 @@ void main() {
       final mid = g.toImageNormalized(50, 100);
       expect(mid.nx, closeTo(0.5, 1e-9));
       expect(mid.ny, closeTo(0.5, 1e-9));
-      // Tapping the very top of the view sees the cropped child, not y=0.
+      // Left edge of the view sees the cropped child, not x=0.
+      final left = g.toImageNormalized(0, 100);
+      expect(left.nx, greaterThan(0.0));
+      expect(left.nx, lessThan(0.5));
+      expect(left.nx, closeTo(0.25, 1e-9));
+      // Vertically uncropped: top of the view is image y=0.
       final top = g.toImageNormalized(50, 0);
-      expect(top.ny, greaterThan(0.0));
-      expect(top.ny, lessThan(0.5));
+      expect(top.ny, closeTo(0.0, 1e-9));
     });
 
     test('degenerate sizes fall back to clamped passthrough', () {
