@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:minilight/core/exposure/camera_body.dart';
 import 'package:minilight/core/exposure/exposure_adjustments.dart';
+import 'package:minilight/core/exposure/exposure_scales.dart';
 import 'package:minilight/core/exposure/exposure_solver.dart';
 import 'package:minilight/core/exposure/film_stock.dart';
 import 'package:minilight/core/log/shot_log.dart';

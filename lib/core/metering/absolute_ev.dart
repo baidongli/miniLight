@@ -54,7 +54,7 @@ class AbsoluteEvCalculator {
   /// Solve the residual so [sample] reads exactly [knownEv100] (optional
   /// one-tap fine calibration against a trusted meter).
   AbsoluteEvCalculator anchorTo(ExposureSample sample, double knownEv100) {
-    final raw = AbsoluteEvCalculator().ev100(sample);
+    final raw = const AbsoluteEvCalculator().ev100(sample);
     return AbsoluteEvCalculator(deviceConstant: knownEv100 - raw);
   }
 }
