@@ -10,6 +10,12 @@ on:
 jobs:
   android:
     runs-on: ubuntu-latest
+    env:
+      ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+      ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+      ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+      ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+      PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -24,29 +30,51 @@ jobs:
         run: flutter create . --platforms=android --project-name minilight --org com.minilight
       - name: Inject native plugin + permissions
         run: bash scripts/inject_native_android.sh
+      - name: Configure release signing
+        run: bash scripts/configure_android_signing.sh
       - name: Dependencies
         run: flutter pub get
+      - name: Generate launcher icons
+        run: dart run flutter_launcher_icons
       - name: Analyze
         run: flutter analyze
       - name: Test
         run: flutter test
-      - name: Build APK
+      - name: Build APK (sideload)
         run: flutter build apk --release
-      - name: Stage APK
+      - name: Build App Bundle (Play)
+        run: flutter build appbundle --release
+      - name: Stage artifacts
         run: |
           mkdir -p dist
           SAFE_REF="${GITHUB_REF_NAME//\//-}"
           cp build/app/outputs/flutter-apk/app-release.apk \
             "dist/minilight-${SAFE_REF}-${{ github.run_number }}.apk"
+          cp build/app/outputs/bundle/release/app-release.aab \
+            "dist/minilight-${SAFE_REF}-${{ github.run_number }}.aab"
       - uses: actions/upload-artifact@v4
         with:
-          name: android-apk
-          path: dist/*.apk
+          name: android
+          path: dist/*
           if-no-files-found: error
           retention-days: 30
+      - name: Upload to Play (internal track)
+        if: ${{ env.PLAY_SERVICE_ACCOUNT_JSON != '' }}
+        uses: r0adkll/upload-google-play@v1
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+          packageName: com.minilight.minilight
+          releaseFiles: dist/*.aab
+          track: internal
+          status: completed
 
   ios:
     runs-on: macos-14
+    env:
+      APPSTORE_API_KEY_ID: ${{ secrets.APPSTORE_API_KEY_ID }}
+      APPSTORE_API_ISSUER_ID: ${{ secrets.APPSTORE_API_ISSUER_ID }}
+      APPSTORE_API_KEY_BASE64: ${{ secrets.APPSTORE_API_KEY_BASE64 }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
     steps:
       - uses: actions/checkout@v4
       - name: Select latest stable Xcode
@@ -63,7 +91,9 @@ jobs:
         run: bash scripts/inject_native_ios.sh
       - name: Dependencies
         run: flutter pub get
-      - name: Build iOS (no codesign)
+      - name: Generate launcher icons
+        run: dart run flutter_launcher_icons
+      - name: Build iOS (no codesign, sideload)
         run: flutter build ios --release --no-codesign
       - name: Package unsigned .app
         run: |
@@ -77,6 +107,32 @@ jobs:
           path: dist/*.zip
           if-no-files-found: error
           retention-days: 30
+      - name: Configure App Store signing
+        if: ${{ env.APPSTORE_API_KEY_ID != '' }}
+        run: bash scripts/configure_ios_signing.sh
+      - name: Archive, export & upload to TestFlight
+        if: ${{ env.APPSTORE_API_KEY_ID != '' }}
+        run: |
+          KEY="$HOME/.appstoreconnect/private_keys/AuthKey_${APPSTORE_API_KEY_ID}.p8"
+          xcodebuild -workspace ios/Runner.xcworkspace \
+            -scheme Runner -configuration Release \
+            -archivePath build/Runner.xcarchive \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$KEY" \
+            -authenticationKeyID "$APPSTORE_API_KEY_ID" \
+            -authenticationKeyIssuerID "$APPSTORE_API_ISSUER_ID" \
+            DEVELOPMENT_TEAM="$APPLE_TEAM_ID" archive
+          xcodebuild -exportArchive \
+            -archivePath build/Runner.xcarchive \
+            -exportOptionsPlist ios/ExportOptions.plist \
+            -exportPath build/ipa \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$KEY" \
+            -authenticationKeyID "$APPSTORE_API_KEY_ID" \
+            -authenticationKeyIssuerID "$APPSTORE_API_ISSUER_ID"
+          xcrun altool --upload-app -f build/ipa/*.ipa -t ios \
+            --apiKey "$APPSTORE_API_KEY_ID" \
+            --apiIssuer "$APPSTORE_API_ISSUER_ID"
 
   release:
     needs: [android, ios]
@@ -99,8 +155,10 @@ jobs:
             miniLight v0.0.1 — automated build from
             `${{ github.ref_name }}` @ ${{ github.sha }}.
 
-            - Android: install the `.apk` (enable "unknown sources").
-            - iOS: unsigned `Runner.app` zip (sideload / re-sign yourself).
+            - Android: `.apk` for sideload; `.aab` is the Play upload.
+            - iOS: unsigned `Runner.app` zip (sideload / re-sign).
+              Signed TestFlight upload runs when App Store secrets are set.
           files: |
             artifacts/**/*.apk
+            artifacts/**/*.aab
             artifacts/**/*.zip

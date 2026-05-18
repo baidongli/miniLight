@@ -73,5 +73,6 @@ flutter run
 - **release** job → publishes a `build-<n>` GitHub Release (marked latest)
   with the APK and the iOS zip attached
 
-The APK is debug-signed and the iOS build is unsigned — fine for testing,
-add real signing before store submission.
+The APK is debug-signed and the iOS build is unsigned — fine for testing.
+For App Store / Google Play release (signed `.aab` + TestFlight upload,
+driven entirely by GitHub Secrets), see **`docs/STORE_SETUP.md`**.
