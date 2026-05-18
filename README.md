@@ -55,5 +55,16 @@ flutter run
 `.github/workflows/android-apk.yml` builds a release APK on every push to
 `main` or any `claude/**` branch (and via manual dispatch). It regenerates
 the Android scaffolding, patches the camera permission, runs analyze +
-tests, builds `flutter build apk --release`, and uploads the APK as the
-`minilight-release-apk` workflow artifact.
+tests, and builds `flutter build apk --release`.
+
+The APK is published two ways:
+
+- **GitHub Release** — each run creates a release tagged `build-<n>` with
+  the `.apk` attached and marked as *latest*. Grab it from the repo's
+  **Releases** page (the easy, shareable download link).
+- **Workflow artifact** — also uploaded under the run's *Artifacts*
+  section as `minilight-release-apk` (a zip).
+
+The APK is debug-signed (no keystore configured), which is fine for
+sideloading and testing. Add a release keystore + signing config before
+shipping to the Play Store.
