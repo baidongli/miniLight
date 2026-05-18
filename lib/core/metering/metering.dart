@@ -61,6 +61,39 @@ class LuminanceSampler {
     return sum / weight;
   }
 
+  /// Mean luminance of a small square centred on a normalised image-plane
+  /// point. [nx]/[ny] are in 0..1 over [width]/[height]. [sizeFraction] is
+  /// the box side as a fraction of the shorter edge. Used for tap-to-meter.
+  static double meanLumaAtPoint({
+    required Uint8List yPlane,
+    required int width,
+    required int height,
+    required int rowStride,
+    required double nx,
+    required double ny,
+    double sizeFraction = 0.08,
+  }) {
+    final side = ((width < height ? width : height) * sizeFraction)
+        .round()
+        .clamp(1, width < height ? width : height);
+    final cx = (nx.clamp(0.0, 1.0) * width).round();
+    final cy = (ny.clamp(0.0, 1.0) * height).round();
+    final left = (cx - side ~/ 2).clamp(0, width - side);
+    final top = (cy - side ~/ 2).clamp(0, height - side);
+    final step = (side ~/ 64).clamp(1, 64);
+
+    var sum = 0.0;
+    var count = 0;
+    for (var y = top; y < top + side; y += step) {
+      final base = y * rowStride;
+      for (var x = left; x < left + side; x += step) {
+        sum += yPlane[base + x];
+        count++;
+      }
+    }
+    return count == 0 ? 0 : sum / count;
+  }
+
   static _Rect _regionFor(MeteringMode mode, int w, int h) {
     switch (mode) {
       case MeteringMode.spot:

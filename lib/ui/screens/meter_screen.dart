@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/metering/metering.dart';
+import '../../core/metering/preview_geometry.dart';
 import '../../services/camera_meter_service.dart';
 import '../../state/meter_controller.dart';
 import '../widgets/reading_panel.dart';
@@ -18,6 +19,7 @@ class MeterScreen extends StatefulWidget {
 
 class _MeterScreenState extends State<MeterScreen> {
   bool _started = false;
+  Offset? _tapLocal;
 
   @override
   void didChangeDependencies() {
@@ -81,19 +83,48 @@ class _MeterScreenState extends State<MeterScreen> {
     if (controller == null || !controller.value.isInitialized) {
       return const Center(child: CircularProgressIndicator());
     }
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        FittedBox(
-          fit: BoxFit.cover,
-          child: SizedBox(
-            width: controller.value.previewSize?.height ?? 1,
-            height: controller.value.previewSize?.width ?? 1,
-            child: CameraPreview(controller),
+    final preview = controller.value.previewSize;
+    if (!cam.isFocusActive && _tapLocal != null) _tapLocal = null;
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTapDown: (d) {
+            final geom = PreviewGeometry(
+              viewWidth: constraints.maxWidth,
+              viewHeight: constraints.maxHeight,
+              childWidth: preview?.height ?? 1,
+              childHeight: preview?.width ?? 1,
+              sensorOrientation:
+                  controller.description.sensorOrientation,
+            );
+            final p = geom.toImageNormalized(
+              d.localPosition.dx,
+              d.localPosition.dy,
+            );
+            cam.setFocusPoint(p.nx, p.ny);
+            setState(() => _tapLocal = d.localPosition);
+          },
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              FittedBox(
+                fit: BoxFit.cover,
+                child: SizedBox(
+                  width: preview?.height ?? 1,
+                  height: preview?.width ?? 1,
+                  child: CameraPreview(controller),
+                ),
+              ),
+              SpotOverlay(
+                mode: cam.meteringMode,
+                focusMarker: cam.isFocusActive ? _tapLocal : null,
+              ),
+            ],
           ),
-        ),
-        SpotOverlay(mode: cam.meteringMode),
-      ],
+        );
+      },
     );
   }
 
@@ -101,13 +132,25 @@ class _MeterScreenState extends State<MeterScreen> {
     return Container(
       color: Colors.black,
       padding: const EdgeInsets.symmetric(vertical: 8),
-      child: SegmentedButton<MeteringMode>(
-        segments: MeteringMode.values
-            .map((m) => ButtonSegment(value: m, label: Text(m.label)))
-            .toList(),
-        selected: {cam.meteringMode},
-        showSelectedIcon: false,
-        onSelectionChanged: (s) => cam.setMeteringMode(s.first),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SegmentedButton<MeteringMode>(
+            segments: MeteringMode.values
+                .map((m) => ButtonSegment(value: m, label: Text(m.label)))
+                .toList(),
+            selected: {cam.meteringMode},
+            showSelectedIcon: false,
+            onSelectionChanged: (s) => cam.setMeteringMode(s.first),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            cam.isFocusActive
+                ? 'Tap-to-meter active · pick a mode to reset'
+                : 'Tap the preview to meter that spot',
+            style: const TextStyle(color: Colors.white38, fontSize: 12),
+          ),
+        ],
       ),
     );
   }

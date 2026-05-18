@@ -7,6 +7,7 @@ a free, cross-platform (iOS + Android) alternative to paid meter apps.
 
 - Live reflective metering from the camera preview
 - Spot / center-weighted / average metering modes
+- Tap-to-meter: touch anywhere on the preview to meter that exact spot
 - Aperture-priority or shutter-priority exposure solving
 - Full / half / third stop scales
 - Film stock presets with reciprocity-failure correction for long exposures

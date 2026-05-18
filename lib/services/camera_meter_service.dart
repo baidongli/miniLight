@@ -27,6 +27,12 @@ class CameraMeterService extends ChangeNotifier {
   double? _ev100;
   double? get ev100 => _ev100;
 
+  /// When set, metering reads a small spot at this normalised image-plane
+  /// point (tap-to-meter) instead of using [meteringMode].
+  ({double nx, double ny})? _focusPoint;
+  ({double nx, double ny})? get focusPoint => _focusPoint;
+  bool get isFocusActive => _focusPoint != null;
+
   String? _error;
   String? get error => _error;
 
@@ -99,13 +105,23 @@ class CameraMeterService extends ChangeNotifier {
         rowStride = image.planes[0].bytesPerRow;
       }
 
-      final luma = LuminanceSampler.meanLuma(
-        yPlane: yPlane,
-        width: width,
-        height: height,
-        rowStride: rowStride,
-        mode: meteringMode,
-      );
+      final fp = _focusPoint;
+      final luma = fp != null
+          ? LuminanceSampler.meanLumaAtPoint(
+              yPlane: yPlane,
+              width: width,
+              height: height,
+              rowStride: rowStride,
+              nx: fp.nx,
+              ny: fp.ny,
+            )
+          : LuminanceSampler.meanLuma(
+              yPlane: yPlane,
+              width: width,
+              height: height,
+              rowStride: rowStride,
+              mode: meteringMode,
+            );
 
       _meanLuma = _meanLuma == 0
           ? luma
@@ -129,6 +145,21 @@ class CameraMeterService extends ChangeNotifier {
 
   void setMeteringMode(MeteringMode mode) {
     meteringMode = mode;
+    // Switching to an explicit mode cancels tap-to-meter.
+    _focusPoint = null;
+    notifyListeners();
+  }
+
+  void setFocusPoint(double nx, double ny) {
+    _focusPoint = (nx: nx, ny: ny);
+    _meanLuma = 0; // restart the smoother so the new spot settles quickly
+    notifyListeners();
+  }
+
+  void clearFocusPoint() {
+    if (_focusPoint == null) return;
+    _focusPoint = null;
+    _meanLuma = 0;
     notifyListeners();
   }
 
