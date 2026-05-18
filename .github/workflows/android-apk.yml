@@ -58,8 +58,9 @@ jobs:
       - name: Rename APK
         run: |
           mkdir -p dist
+          SAFE_REF="${GITHUB_REF_NAME//\//-}"
           cp build/app/outputs/flutter-apk/app-release.apk \
-            "dist/minilight-${{ github.ref_name }}-${{ github.run_number }}.apk"
+            "dist/minilight-${SAFE_REF}-${{ github.run_number }}.apk"
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
