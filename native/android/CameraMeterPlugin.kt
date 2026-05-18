@@ -1,6 +1,10 @@
 package com.minilight.app
 
 import android.content.Context
+import android.hardware.Sensor
+import android.hardware.SensorEvent
+import android.hardware.SensorEventListener
+import android.hardware.SensorManager
 import android.graphics.ImageFormat
 import android.hardware.camera2.CameraCaptureSession
 import android.hardware.camera2.CameraCharacteristics
@@ -32,6 +36,18 @@ class CameraMeterPlugin : FlutterPlugin, MethodChannel.MethodCallHandler,
     private var eventChannel: EventChannel? = null
     private var sink: EventChannel.EventSink? = null
 
+    private var luxChannel: EventChannel? = null
+    private var luxSink: EventChannel.EventSink? = null
+    private var sensorManager: SensorManager? = null
+    private var lightSensor: Sensor? = null
+    private val luxListener = object : SensorEventListener {
+        override fun onSensorChanged(e: SensorEvent) {
+            val v = e.values.firstOrNull()?.toDouble() ?: return
+            Handler(context.mainLooper).post { luxSink?.success(v) }
+        }
+        override fun onAccuracyChanged(s: Sensor?, a: Int) {}
+    }
+
     private var thread: HandlerThread? = null
     private var handler: Handler? = null
     private var device: CameraDevice? = null
@@ -51,12 +67,24 @@ class CameraMeterPlugin : FlutterPlugin, MethodChannel.MethodCallHandler,
         methodChannel!!.setMethodCallHandler(this)
         eventChannel = EventChannel(b.binaryMessenger, "minilight/exposure_events")
         eventChannel!!.setStreamHandler(this)
+        sensorManager =
+            context.getSystemService(Context.SENSOR_SERVICE) as? SensorManager
+        lightSensor = sensorManager?.getDefaultSensor(Sensor.TYPE_LIGHT)
+        luxChannel = EventChannel(b.binaryMessenger, "minilight/lux_events")
+        luxChannel!!.setStreamHandler(object : EventChannel.StreamHandler {
+            override fun onListen(a: Any?, s: EventChannel.EventSink?) {
+                luxSink = s
+            }
+            override fun onCancel(a: Any?) { luxSink = null }
+        })
     }
 
     override fun onDetachedFromEngine(b: FlutterPlugin.FlutterPluginBinding) {
         stop()
+        sensorManager?.unregisterListener(luxListener)
         methodChannel?.setMethodCallHandler(null)
         eventChannel?.setStreamHandler(null)
+        luxChannel?.setStreamHandler(null)
     }
 
     override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
@@ -76,6 +104,20 @@ class CameraMeterPlugin : FlutterPlugin, MethodChannel.MethodCallHandler,
                 result.success(null)
             }
             "stop" -> { stop(); result.success(null) }
+            "isLuxAvailable" -> result.success(lightSensor != null)
+            "startLux" -> {
+                lightSensor?.let {
+                    sensorManager?.registerListener(
+                        luxListener, it,
+                        SensorManager.SENSOR_DELAY_NORMAL
+                    )
+                }
+                result.success(null)
+            }
+            "stopLux" -> {
+                sensorManager?.unregisterListener(luxListener)
+                result.success(null)
+            }
             else -> result.notImplemented()
         }
     }

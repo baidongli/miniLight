@@ -53,6 +53,10 @@ public class CameraMeterPlugin: NSObject, FlutterPlugin,
     case "stop":
       stop()
       result(nil)
+    case "isLuxAvailable":
+      result(false)  // iOS has no public ambient-lux API.
+    case "startLux", "stopLux":
+      result(nil)
     default:
       result(FlutterMethodNotImplemented)
     }

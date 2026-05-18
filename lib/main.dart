@@ -37,9 +37,13 @@ class MiniLightApp extends StatelessWidget {
         ChangeNotifierProvider.value(value: controller),
         ChangeNotifierProvider.value(value: rolls),
         ChangeNotifierProvider(create: (_) => CameraMeterService()),
-        ChangeNotifierProvider(create: (_) => LightSensorService()),
+        Provider(create: (_) => ExposureMetadataChannel()),
         ChangeNotifierProvider(
-          create: (_) => RealMeterService(ExposureMetadataChannel()),
+          create: (c) => LightSensorService(c.read<ExposureMetadataChannel>()),
+        ),
+        ChangeNotifierProvider(
+          create: (c) =>
+              RealMeterService(c.read<ExposureMetadataChannel>()),
         ),
       ],
       child: Consumer<MeterController>(

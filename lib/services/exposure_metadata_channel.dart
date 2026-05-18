@@ -11,6 +11,8 @@ class ExposureMetadataChannel {
       MethodChannel('minilight/exposure');
   static const EventChannel _events =
       EventChannel('minilight/exposure_events');
+  static const EventChannel _luxEvents =
+      EventChannel('minilight/lux_events');
 
   /// 0=center spot, 1=center-weighted, 2=average — kept in sync with the
   /// Dart MeteringMode index so native samples the same region.
@@ -37,6 +39,26 @@ class ExposureMetadataChannel {
       return false;
     }
   }
+
+  /// True if the device has an ambient-light (lux) sensor wired to the
+  /// native plugin (Android only; iOS has no public ambient-lux API).
+  Future<bool> isLuxAvailable() async {
+    try {
+      final v = await _method.invokeMethod<bool>('isLuxAvailable');
+      return v ?? false;
+    } on MissingPluginException {
+      return false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<void> startLux() => _method.invokeMethod('startLux');
+  Future<void> stopLux() => _method.invokeMethod('stopLux');
+
+  Stream<double> luxStream() => _luxEvents
+      .receiveBroadcastStream()
+      .map((e) => (e as num).toDouble());
 
   Stream<ExposureSample> samples() =>
       _events.receiveBroadcastStream().map((e) {

@@ -1,14 +1,18 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
-import 'package:light/light.dart';
 
-/// Ambient-light (lux) source for incident-style metering. Android exposes
-/// an illuminance sensor; iOS has no public ambient-lux API, so this stays
-/// inactive there and the UI falls back to camera metering.
+import 'exposure_metadata_channel.dart';
+
+/// Ambient-light (lux) source for incident-style metering, read through the
+/// native plugin's light-sensor stream. Android exposes an illuminance
+/// sensor; iOS has no public ambient-lux API, so this stays inactive there
+/// and the UI falls back to camera metering.
 class LightSensorService extends ChangeNotifier {
-  Light? _light;
-  StreamSubscription<int>? _sub;
+  LightSensorService(this._channel);
+
+  final ExposureMetadataChannel _channel;
+  StreamSubscription<double>? _sub;
 
   double _lux = 0;
   double get lux => _lux;
@@ -17,28 +21,25 @@ class LightSensorService extends ChangeNotifier {
   bool get available => _available;
 
   Future<void> start() async {
-    if (defaultTargetPlatform != TargetPlatform.android) {
-      _available = false;
-      notifyListeners();
-      return;
-    }
+    _available = await _channel.isLuxAvailable();
+    notifyListeners();
+    if (!_available) return;
     try {
-      _light = Light();
-      _sub = _light!.lightSensorStream.listen((v) {
-        _lux = v.toDouble();
-        _available = true;
+      await _channel.startLux();
+      _sub = _channel.luxStream().listen((v) {
+        _lux = v;
         notifyListeners();
       });
-      _available = true;
     } catch (_) {
       _available = false;
+      notifyListeners();
     }
-    notifyListeners();
   }
 
   Future<void> stop() async {
     await _sub?.cancel();
     _sub = null;
+    await _channel.stopLux();
   }
 
   @override
