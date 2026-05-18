@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/exposure/camera_body.dart';
 import '../../core/exposure/exposure_scales.dart';
 import '../../core/exposure/exposure_solver.dart';
 import '../../core/exposure/film_stock.dart';
+import '../../l10n/app_strings.dart';
 import '../../services/camera_meter_service.dart';
 import '../../state/meter_controller.dart';
 
@@ -96,6 +98,135 @@ class SettingsScreen extends StatelessWidget {
             trailing: const Icon(Icons.center_focus_strong),
             onTap: () => _calibrate(context, meter, cam),
           ),
+          const Divider(),
+          ListTile(
+            title: Text(AppStrings.of(context).t('camera_body')),
+            subtitle: Text(meter.body.name),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => _pickBody(context, meter),
+          ),
+          ListTile(
+            title: Text(AppStrings.of(context).t('add_film')),
+            trailing: const Icon(Icons.add),
+            onTap: () => _addFilm(context, meter),
+          ),
+          ListTile(
+            title: Text(AppStrings.of(context).t('language')),
+            subtitle: Text(meter.locale?.languageCode ?? 'system'),
+            trailing: const Icon(Icons.translate),
+            onTap: () => _pickLanguage(context, meter),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _pickBody(BuildContext context, MeterController meter) {
+    showModalBottomSheet<void>(
+      context: context,
+      builder: (_) => SafeArea(
+        child: ListView(
+          shrinkWrap: true,
+          children: CameraBody.presets
+              .map((b) => ListTile(
+                    title: Text(b.name),
+                    selected: b.name == meter.body.name,
+                    onTap: () {
+                      meter.setBody(b);
+                      Navigator.pop(context);
+                    },
+                  ))
+              .toList(),
+        ),
+      ),
+    );
+  }
+
+  void _pickLanguage(BuildContext context, MeterController meter) {
+    showModalBottomSheet<void>(
+      context: context,
+      builder: (_) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              title: const Text('System'),
+              onTap: () {
+                meter.setLocale(null);
+                Navigator.pop(context);
+              },
+            ),
+            ListTile(
+              title: const Text('English'),
+              onTap: () {
+                meter.setLocale(const Locale('en'));
+                Navigator.pop(context);
+              },
+            ),
+            ListTile(
+              title: const Text('中文'),
+              onTap: () {
+                meter.setLocale(const Locale('zh'));
+                Navigator.pop(context);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _addFilm(BuildContext context, MeterController meter) {
+    final name = TextEditingController();
+    final iso = TextEditingController(text: '400');
+    final power = TextEditingController(text: '1.0');
+    showDialog<void>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: Text(AppStrings.of(context).t('add_film')),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: name,
+              decoration: const InputDecoration(labelText: 'Name'),
+            ),
+            TextField(
+              controller: iso,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(labelText: 'ISO'),
+            ),
+            TextField(
+              controller: power,
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
+              decoration: const InputDecoration(
+                  labelText: 'Reciprocity power (1.0 = none)'),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () {
+              final n = name.text.trim();
+              final i = double.tryParse(iso.text);
+              final p = double.tryParse(power.text) ?? 1.0;
+              if (n.isNotEmpty && i != null) {
+                meter.addCustomFilm(FilmStock(
+                  name: n,
+                  iso: i,
+                  reciprocityPower: p,
+                  custom: true,
+                ));
+              }
+              Navigator.pop(context);
+            },
+            child: const Text('Add'),
+          ),
         ],
       ),
     );
@@ -107,11 +238,21 @@ class SettingsScreen extends StatelessWidget {
       builder: (_) => SafeArea(
         child: ListView(
           shrinkWrap: true,
-          children: FilmStock.presets
+          children: meter.allFilms
               .map((f) => ListTile(
                     title: Text(f.name),
-                    subtitle: Text('ISO ${f.iso.toStringAsFixed(0)}'),
+                    subtitle: Text('ISO ${f.iso.toStringAsFixed(0)}'
+                        '${f.custom ? ' · custom' : ''}'),
                     selected: f.name == meter.film.name,
+                    trailing: f.custom
+                        ? IconButton(
+                            icon: const Icon(Icons.delete_outline),
+                            onPressed: () {
+                              meter.removeCustomFilm(f);
+                              Navigator.pop(context);
+                            },
+                          )
+                        : null,
                     onTap: () {
                       meter.setFilm(f);
                       Navigator.pop(context);

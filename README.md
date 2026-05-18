@@ -1,71 +1,77 @@
 # miniLight
 
-Free film camera light meter. Reflective metering through the device camera —
-a free, cross-platform (iOS + Android) alternative to paid meter apps.
+**v0.0.1** — free, cross-platform (iOS + Android) film camera light meter.
+A free alternative to paid meter apps.
 
-## What it does
+## Features
 
-- Live reflective metering from the camera preview
-- Spot / center-weighted / average metering modes
-- Tap-to-meter: touch anywhere on the preview to meter that exact spot
-- Aperture-priority or shutter-priority exposure solving
-- Full / half / third stop scales
-- Film stock presets with reciprocity-failure correction for long exposures
-- One- and two-point calibration against a known meter or the Sunny-16 rule
-- Settings persisted across launches
+- Three metering sources:
+  - **Camera** — reflective metering from the preview (exposure-locked +
+    calibration model)
+  - **Real (sensor data)** — native Camera2 / AVFoundation reads the
+    camera's own exposure metadata for a *calibration-free absolute EV*
+  - **Incident (lux)** — Android ambient-light sensor
+- Spot / center-weighted / average modes + **tap-to-meter** (touch any
+  point on the preview)
+- Aperture- or shutter-priority solving, full / half / third stops
+- **Camera body profiles** — snap to the exact shutter speeds a given
+  body actually has (Leica M, Hasselblad, FM2, K1000…)
+- **Compensations**: push/pull, filter factor, bellows (direct or from
+  focal/extension), exposure-compensation dial
+- **Zone System** placement (place a reading on any zone 0–10)
+- Film presets + reciprocity correction; **add custom films**
+- **Shot log**: rolls, per-frame log with GPS, CSV export/share
+- Reading **hold/lock**, highlight/shadow clipping warning
+- English / 简体中文, settings persisted
 
 ## Architecture
 
-Layered so the exposure logic is pure, testable Dart with no Flutter or
-platform dependency — the same core runs unchanged on iOS and Android.
+Layered so the exposure logic is pure, testable Dart — the same core runs
+unchanged on iOS and Android.
 
 ```
 lib/
-  core/                 pure Dart, fully unit tested
-    exposure/           EV math, value scales, film stocks, solver
-    metering/           luminance sampling, calibration model
-  services/             camera adapter (camera plugin -> scene EV)
-  state/                MeterController (settings + persistence)
-  ui/                   screens + widgets
-test/                   unit tests for the core
+  core/        pure Dart, fully unit tested
+    exposure/  EV math, scales, film, camera bodies, adjustments, solver
+    metering/  luminance, calibration, absolute-EV, incident-EV, geometry
+    log/       roll + shot-log model, CSV
+  services/    camera, native exposure channel, light sensor, GPS, rolls
+  state/       MeterController (all settings + persistence)
+  ui/          screens + widgets
+  l10n/        in-app en/zh strings
+native/        committed Camera2 (Kotlin) + AVFoundation (Swift) plugin
+scripts/       CI native-injection scripts
+test/          unit tests for the whole core
 ```
 
-The `camera` plugin does not expose per-frame exposure metadata, so the
-camera is exposure-locked and a calibration model maps measured luma to EV.
-Anchor it once against a trusted reference (or Sunny-16) for accurate
-absolute readings.
+**Real metering**: the `camera` plugin exposes no per-frame exposure
+metadata, so a small native plugin (`native/android`, `native/ios`) runs
+its own metering session, streams `{exposureTime, ISO, aperture, region
+luma}`, and `AbsoluteEvCalculator` derives an absolute EV with no manual
+calibration. The native sources are committed under `native/` and injected
+into the CI-generated platform projects by `scripts/inject_native_*.sh`
+(this keeps the repo lean while still version-controlling the native code).
 
 ## Run locally
 
-Native platform folders are generated on demand (kept out of git):
-
 ```bash
 flutter create . --platforms=android,ios --project-name minilight --org com.minilight
-# Android: add to android/app/src/main/AndroidManifest.xml above <application>:
-#   <uses-permission android:name="android.permission.CAMERA" />
-# iOS: add to ios/Runner/Info.plist:
-#   <key>NSCameraUsageDescription</key>
-#   <string>miniLight uses the camera to meter light.</string>
+bash scripts/inject_native_android.sh   # on macOS also: scripts/inject_native_ios.sh
 flutter pub get
 flutter test
 flutter run
 ```
 
-## Automated Android APK
+## CI builds
 
-`.github/workflows/android-apk.yml` builds a release APK on every push to
-`main` or any `claude/**` branch (and via manual dispatch). It regenerates
-the Android scaffolding, patches the camera permission, runs analyze +
-tests, and builds `flutter build apk --release`.
+`.github/workflows/android-apk.yml` runs on every push to `main` /
+`claude/**` (and manual dispatch):
 
-The APK is published two ways:
+- **android** job → analyze + test + `flutter build apk --release`
+- **ios** job → `flutter build ios --release --no-codesign`, zips the
+  unsigned `Runner.app`
+- **release** job → publishes a `build-<n>` GitHub Release (marked latest)
+  with the APK and the iOS zip attached
 
-- **GitHub Release** — each run creates a release tagged `build-<n>` with
-  the `.apk` attached and marked as *latest*. Grab it from the repo's
-  **Releases** page (the easy, shareable download link).
-- **Workflow artifact** — also uploaded under the run's *Artifacts*
-  section as `minilight-release-apk` (a zip).
-
-The APK is debug-signed (no keystore configured), which is fine for
-sideloading and testing. Add a release keystore + signing config before
-shipping to the Play Store.
+The APK is debug-signed and the iOS build is unsigned — fine for testing,
+add real signing before store submission.

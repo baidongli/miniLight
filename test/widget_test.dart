@@ -8,7 +8,8 @@ void main() {
   testWidgets('ReadingPanel shows the solved exposure', (tester) async {
     const solution = ExposureSolution(
       ev100: 15,
-      evAtIso: 15,
+      workingEv: 15,
+      effectiveIso: 100,
       aperture: 16,
       shutterSeconds: 1 / 125,
       shutterAfterReciprocity: 1 / 125,

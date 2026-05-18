@@ -1,7 +1,7 @@
 name: minilight
 description: Free film camera light meter. Reflective metering via the device camera.
 publish_to: "none"
-version: 0.1.0+1
+version: 0.0.1+1
 
 environment:
   sdk: ">=3.3.0 <4.0.0"
@@ -10,9 +10,15 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  flutter_localizations:
+    sdk: flutter
   camera: ^0.11.0+2
   provider: ^6.1.2
   shared_preferences: ^2.3.2
+  light: ^3.0.1
+  geolocator: ^13.0.1
+  path_provider: ^2.1.4
+  share_plus: ^10.0.2
 
 dev_dependencies:
   flutter_test:

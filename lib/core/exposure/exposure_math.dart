@@ -15,6 +15,9 @@ class ExposureMath {
 
   static double log2(double x) => math.log(x) / math.ln2;
 
+  /// 2^[stops]; converts a stop offset to a linear light ratio.
+  static double evToLinear(double stops) => math.pow(2, stops).toDouble();
+
   /// Scene EV referenced to ISO 100, expressed at an arbitrary working [iso].
   static double evAtIso(double ev100, double iso) =>
       ev100 + log2(iso / 100.0);
