@@ -74,5 +74,5 @@ flutter run
   with the APK and the iOS zip attached
 
 The APK is debug-signed and the iOS build is unsigned — fine for testing.
-For App Store / Google Play release (signed `.aab` + TestFlight upload,
-driven entirely by GitHub Secrets), see **`docs/STORE_SETUP.md`**.
+For release: **`docs/PLAY_GUIDE.md`** is the complete step-by-step Google
+Play walkthrough; `docs/STORE_SETUP.md` covers both stores at a glance.
